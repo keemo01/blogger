@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const Comment = require('./models/Comment');
 const User = require('./models/User');
 const Post = require('./models/Post');
 const cors = require('cors');
@@ -35,23 +36,30 @@ app.post('/register', async (req,res) => {
   }
 });
 
-app.post('/login', async (req,res) => {
-  const {username,password} = req.body;
-  const userDoc = await User.findOne({username});
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+  const userDoc = await User.findOne({ username });
+
+  if (!userDoc) {
+    return res.status(400).json('User not found');
+  }
+
   const passOk = bcrypt.compareSync(password, userDoc.password);
+
   if (passOk) {
     // logged in
-    jwt.sign({username,id:userDoc._id}, secret, {}, (err,token) => {
+    jwt.sign({ username, id: userDoc._id }, secret, {}, (err, token) => {
       if (err) throw err;
       res.cookie('token', token).json({
-        id:userDoc._id,
+        id: userDoc._id,
         username,
       });
     });
   } else {
-    res.status(400).json('wrong credentials');
+    res.status(400).json('Wrong credentials');
   }
 });
+
 
 app.get('/profile', (req,res) => {
   const {token} = req.cookies;
@@ -134,4 +142,64 @@ app.get('/post/:id', async (req, res) => {
   const postDoc = await Post.findById(id).populate('author','username');
   res.json(postDoc);
 })
+
+app.post('/post/:postId/comment', async (req, res) => {
+  const { postId } = req.params;
+  const { content } = req.body;
+  const { token } = req.cookies;
+
+  try {
+    jwt.verify(token, secret, {}, async (err, info) => {
+      if (err) throw err;
+      const comment = await Comment.create({
+        postId,
+        content,
+        author: info.id,
+      });
+      res.json(comment);
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create comment' });
+  }
+});
+
+app.get('/post/:postId/comment', async (req, res) => {
+  const { postId } = req.params;
+
+  try {
+    const comments = await Comment.find({ postId })
+      .populate('author', 'username')
+      .sort({ createdAt: -1 });
+    res.json(comments);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to retrieve comments' });
+  }
+});
+
+app.delete('/post/:postId/delete', async (req, res) => {
+  const { postId } = req.params;
+  const { token } = req.cookies;
+
+  try {
+    jwt.verify(token, secret, {}, async (err, info) => {
+      if (err) throw err;
+      const post = await Post.findById(postId);
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+      if (post.author.toString() !== info.id) {
+        return res.status(403).json({ error: 'You are not authorized to delete this post' });
+      }
+      await Post.findByIdAndDelete(postId);
+      res.json({ message: 'Post deleted successfully' });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete post' });
+  }
+});
+
+
 app.listen(4000);

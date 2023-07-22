@@ -43,22 +43,26 @@ export default function Header() {
 
   return (
     <header>
-      <Link to="/" className="logo">
-        Myblog
-      </Link>
-      <nav>
-        {username && (
-          <>
-            <Link to="/create">Create New Post</Link>
-            <a onClick={logout}>Logout</a>
-          </>
-        )}
-        {!username && (
-          <>
-            <Link to="/login">Login</Link>
-            <Link to="/register">Register</Link>
-          </>
-        )}
+      <nav className="navbar">
+        <div className="navbar-container">
+          <Link to="/" className="logo">
+            Myblog
+          </Link>
+          <div className="navbar-links">
+            {username ? (
+              <>
+                <Link to="/create">Create New Post</Link>
+                <Link to="/profile">Profile</Link>
+                <a onClick={logout}>Logout</a>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="nav-link">Login</Link>
+                <Link to="/register" className="nav-link">Register</Link>
+              </>
+            )}
+          </div>
+        </div>
       </nav>
     </header>
   );
